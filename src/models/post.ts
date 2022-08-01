@@ -41,6 +41,9 @@ const postSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    publishedDate: {
+      type: Date,
+    },
     category: {
       type: new mongoose.Schema({
         name: {

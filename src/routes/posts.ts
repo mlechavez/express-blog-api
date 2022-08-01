@@ -46,22 +46,75 @@ router.post(
 );
 
 router.get("/", async (req: Request, res: Response) => {
-  let posts, totalCount;
+  let posts: any,
+    pageNumber: number = 1,
+    pageSize: number = 15,
+    totalCount: number = 0;
 
-  totalCount = await Post.find({ published: true }).count();
+  if (req.query.pageNumber && req.query.pageSize) {
+    pageNumber = +req.query.pageNumber;
+    pageSize = +req.query.pageSize;
+  }
+  // Regular expressions
+  // ^ starts with
+  // $ ends with
+  // i at the end of regular expression stands for case insensitive
+  // .* zero or more character or contains
 
-  if (req.query.pageIndex && req.query.pageSize) {
+  if (req.query.category) {
+    posts = await Post.find({
+      published: true,
+      "category.name": {
+        $regex: new RegExp(`.*${req.query.category}.*`),
+        $options: "i",
+      },
+    })
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ publishedDate: 1 });
+
+    totalCount = await Post.find({
+      published: true,
+      "category.name": {
+        $regex: new RegExp(`.*${req.query.category}.*`),
+        $options: "i",
+      },
+    }).count();
+  } else if (req.query.search) {
+    posts = await Post.find({
+      published: true,
+      title: {
+        $regex: new RegExp(`.*${req.query.search}.*`),
+        $options: "i",
+      },
+    })
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ publishedDate: 1 });
+
+    totalCount = await Post.find({
+      published: true,
+      title: {
+        $regex: new RegExp(`.*${req.query.search}.*`),
+        $options: "i",
+      },
+    }).count();
+  } else {
     posts = await Post.find({ published: true })
-      .skip((+req.query.pageIndex - 1) * +req.query.pageSize)
-      .limit(+req.query.pageSize)
-      .sort({ createdOn: 1 });
-  } else posts = await Post.find();
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ publishedDate: 1 });
+
+    totalCount = await Post.find({
+      published: true,
+    }).count();
+  }
 
   return res.send({
     success: true,
     data: {
-      pageIndex: req.query.pageIndex ? req.query.pageIndex : 1,
-      pageSize: req.query.pageSize ? req.query.pageSize : 15,
+      pageNumber,
+      pageSize,
       totalCount,
       posts,
     },
@@ -74,11 +127,12 @@ router.get("/:id", async (req: Request, res: Response) => {
 
   const post = await Post.findById(req.params.id);
 
-  if (!post)
+  if (!post) {
     return res.status(404).send({
       success: false,
       message: "The post with the given id was not found.",
     });
+  }
 
   res.send({ success: true, data: post });
 });
